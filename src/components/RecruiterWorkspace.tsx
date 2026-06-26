@@ -1453,7 +1453,7 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
                 className="relative p-1.5 hover:bg-white dark:hover:bg-white/10 dark:bg-[#14183B]/10 rounded-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all"
               >
                 <Bell className="w-4 h-4" />
-                {candidatesList.filter(c => c.newApplicationNotification || c.newInterviewAnswersNotification).length > 0 && (
+                {candidatesList.filter(c => c.newApplicationNotification || c.newInterviewAnswersNotification || c.interviewRSVP === 'reschedule_requested').length > 0 && (
                   <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border border-white dark:border-[#0B0E2E]" />
                 )}
               </button>
@@ -1476,10 +1476,10 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
                         </div>
                       </div>
                       <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5">
-                        {candidatesList.filter(c => c.newApplicationNotification || c.newInterviewAnswersNotification).length === 0 ? (
+                        {candidatesList.filter(c => c.newApplicationNotification || c.newInterviewAnswersNotification || c.interviewRSVP === 'reschedule_requested').length === 0 ? (
                           <div className="px-4 py-6 text-center text-xs text-slate-600 dark:text-slate-400">No new notifications</div>
                         ) : (
-                          candidatesList.filter(c => c.newApplicationNotification || c.newInterviewAnswersNotification).map(cand => (
+                          candidatesList.filter(c => c.newApplicationNotification || c.newInterviewAnswersNotification || c.interviewRSVP === 'reschedule_requested').map(cand => (
                             <div key={cand.id} className="px-4 py-3 space-y-2">
                               <div className="flex items-start gap-2.5">
                                 <div className="w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center font-black text-[10px] text-purple-700 dark:text-purple-300 shrink-0 overflow-hidden">
@@ -1488,7 +1488,7 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
                                 <div className="flex-1 min-w-0">
                                   <span className="text-slate-900 dark:text-white text-xs font-bold block">{cand.name}</span>
                                   <span className="text-slate-600 dark:text-slate-400 text-[10px] block">
-                                    {cand.newInterviewAnswersNotification ? "Submitted answers for" : "Applied for"}: <strong className="text-purple-500 dark:text-purple-300">{cand.role}</strong>
+                                    {cand.interviewRSVP === 'reschedule_requested' ? "Requested to reschedule interview for" : cand.newInterviewAnswersNotification ? "Submitted answers for" : "Applied for"}: <strong className="text-purple-500 dark:text-purple-300">{cand.role}</strong>
                                   </span>
                                 </div>
                               </div>
@@ -1498,7 +1498,7 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
                                     try {
                                       const stored = localStorage.getItem("cs_registered_candidates") || "[]";
                                       const list = JSON.parse(stored);
-                                      const updated = list.map((c) => c.name === cand.name ? { ...c, newInterviewAnswersNotification: false, newApplicationNotification: false } : c);
+                                      const updated = list.map((c: any) => c.name === cand.name ? { ...c, newInterviewAnswersNotification: false, newApplicationNotification: false, interviewRSVP: (c.interviewRSVP === 'reschedule_requested' ? 'pending' : c.interviewRSVP) } : c);
                                       localStorage.setItem("cs_registered_candidates", JSON.stringify(updated));
                                       // @ts-ignore
                                       if (typeof setCandidatesList === 'function') setCandidatesList(updated);

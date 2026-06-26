@@ -1796,11 +1796,11 @@ export default function CandidateWorkspace({
                                 const list = JSON.parse(stored);
                                 const updated = list.map((c: any) =>
                                   c.email?.toLowerCase() === userEmail?.toLowerCase()
-                                    ? { ...c, interviewRSVP: 'reschedule' }
+                                    ? { ...c, interviewRSVP: 'reschedule_requested' }
                                     : c
                                 );
                                 localStorage.setItem('cs_registered_candidates', JSON.stringify(updated));
-                                setCandidateRecord((prev: any) => ({ ...prev, interviewRSVP: 'reschedule' }));
+                                setCandidateRecord((prev: any) => ({ ...prev, interviewRSVP: 'reschedule_requested' }));
                               } catch (e) {}
                             }}
                             className="bg-white dark:bg-[#14183B]/20 hover:bg-white dark:bg-[#14183B]/30 text-slate-900 dark:text-white font-bold px-3 py-2 rounded-xl text-xs transition-all cursor-pointer active:scale-95"
@@ -1873,7 +1873,7 @@ export default function CandidateWorkspace({
                 )}
 
                 {/* Interview RSVP Reschedule badge */}
-                {candidateRecord?.scheduledDate && candidateRecord?.interviewRSVP === 'reschedule' && (
+                {candidateRecord?.scheduledDate && candidateRecord?.interviewRSVP === 'reschedule_requested' && (
                   <div className="bg-amber-900/20 border border-amber-500/20 rounded-2xl p-4 flex items-center gap-3 text-amber-300">
                     <span className="text-lg">⏳</span>
                     <div>
@@ -2409,6 +2409,8 @@ export default function CandidateWorkspace({
                   selectedRole={selectedRole}
                   userEmail={userEmail}
                   isOfficialScheduledInterview={!!candidateRecord?.scheduledDate && candidateRecord?.interviewRSVP === 'confirmed'}
+                  scheduledDate={candidateRecord?.scheduledDate}
+                  scheduledTime={candidateRecord?.scheduledTime}
                 />
               </motion.div>
             )}

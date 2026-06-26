@@ -121,13 +121,48 @@ interface MockInterviewPortalProps {
   selectedRole: string;
   userEmail?: string;
   isOfficialScheduledInterview?: boolean;
+  scheduledDate?: string;
+  scheduledTime?: string;
 }
 
 type Phase = "setup" | "active" | "evaluating" | "result" | "leaderboard" | "history";
 
-export default function MockInterviewPortal({ userName, selectedRole, userEmail, isOfficialScheduledInterview }: MockInterviewPortalProps) {
+export default function MockInterviewPortal({ userName, selectedRole, userEmail, isOfficialScheduledInterview, scheduledDate, scheduledTime }: MockInterviewPortalProps) {
   /* ── Setup state ── */
   const [phase, setPhase] = useState<Phase>("setup");
+    const [timeStatus, setTimeStatus] = useState<'early' | 'ready' | 'expired'>('ready');
+  const [timeMessage, setTimeMessage] = useState('');
+
+  useEffect(() => {
+    if (!isOfficialScheduledInterview || !scheduledDate || !scheduledTime) return;
+
+    const checkTime = () => {
+      try {
+        const now = new Date();
+        const sched = new Date(`${scheduledDate}T${scheduledTime}`);
+        if (isNaN(sched.getTime())) return; // invalid date
+
+        const diffMs = now.getTime() - sched.getTime();
+        const diffMins = diffMs / (1000 * 60);
+
+        if (diffMins < 0) {
+          setTimeStatus('early');
+          setTimeMessage(`Interview starts at ${scheduledTime}`);
+        } else if (diffMins > 5) {
+          setTimeStatus('expired');
+          setTimeMessage('Session Expired');
+        } else {
+          setTimeStatus('ready');
+          setTimeMessage('');
+        }
+      } catch(e) {}
+    };
+
+    checkTime();
+    const interval = setInterval(checkTime, 1000);
+    return () => clearInterval(interval);
+  }, [isOfficialScheduledInterview, scheduledDate, scheduledTime]);
+
   const [role, setRole] = useState(() => {
     // Map parent selectedRole to ROLES id
     const parentRole = selectedRole || "UI/UX Designer";
@@ -545,9 +580,18 @@ export default function MockInterviewPortal({ userName, selectedRole, userEmail,
                   <button
                     id="btn-start-interview"
                     onClick={startInterview}
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-extrabold py-3.5 rounded-xl text-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                    disabled={timeStatus !== 'ready'}
+                    className={`w-full text-white font-extrabold py-3.5 rounded-xl text-xs shadow-lg transition-all flex items-center justify-center gap-2 ${
+                      timeStatus === 'ready' 
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 cursor-pointer active:scale-95' 
+                        : timeStatus === 'expired'
+                        ? 'bg-red-500/50 cursor-not-allowed opacity-75 border border-red-500/30'
+                        : 'bg-slate-500/50 cursor-not-allowed opacity-75'
+                    }`}
                   >
-                    <Play className="w-4 h-4" /> Start Official Scheduled Interview
+                    {timeStatus === 'ready' && <><Play className="w-4 h-4" /> Start Official Scheduled Interview</>}
+                    {timeStatus === 'early' && <><span className="text-lg">⏳</span> {timeMessage}</>}
+                    {timeStatus === 'expired' && <><span className="text-lg">🚫</span> {timeMessage} (Missed 5-minute window)</>}
                   </button>
                 </div>
               ) : (
