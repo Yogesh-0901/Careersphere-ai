@@ -60,8 +60,8 @@ app.post("/api/send-email", async (req, res) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        service_id: "service_qscyczo",
-        template_id: "template_a2jf1nt",
+        service_id: "service_xw7k85y",
+        template_id: "template_1gitqyj",
         user_id: "ZFnEUVSq5ekCN4kmV",
         template_params: {
           to_email: to,
