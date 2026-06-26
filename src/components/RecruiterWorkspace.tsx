@@ -447,19 +447,35 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
     openEmailModal(cand, 'Hire');
   };
 
-  const sendEmailThroughAPI = async (to: string, subject: string, body: string): Promise<boolean> => {
+  const sendEmailThroughAPI = async (to: string, subject: string, body: string): Promise<any> => {
     try {
-      const res = await fetch("/api/send-email", {
+      const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject, body })
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          service_id: "service_qscyczo",
+          template_id: "template_a2jf1nt",
+          user_id: "ZFnEUVSq5ekCN4kmV",
+          template_params: {
+            to_email: to,
+            subject: subject,
+            message: body
+          }
+        })
       });
-      if (!res.ok) return false;
-      const data = await res.json();
-      return data.success === true && data.mode === "real";
+
+      if (response.ok) {
+        return true;
+      } else {
+        const err = await response.text();
+        console.error("EmailJS error:", err);
+        return err;
+      }
     } catch (err: any) {
-      console.warn("[Email API] Backend unreachable, falling back to local dashboard delivery:", err?.message || err);
-      return false;
+      console.warn("[Email API] unreachable:", err?.message || err);
+      return err?.message || "Network Error";
     }
   };
 
@@ -521,7 +537,7 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
     const realEmailSent = await sendEmailThroughAPI(candCopy.email, subjectCopy, bodyCopy);
 
     // 3. Show a non-blocking toast notification
-    if (realEmailSent) {
+    if (realEmailSent === true) {
       setEmailSentToast({
         msg: isHired
           ? `🎉 Offer letter delivered to ${candCopy.email}! ${candCopy.name} is now officially Hired.`
@@ -530,10 +546,8 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
       });
     } else {
       setEmailSentToast({
-        msg: isHired
-          ? `🎉 ${candCopy.name} marked as Hired! Offer letter stored in candidate dashboard. Configure SMTP in .env to send real emails.`
-          : `Notification stored in ${candCopy.name}'s dashboard. Configure SMTP in .env to enable real email delivery.`,
-        type: isHired ? 'success' : 'info'
+        msg: `EmailJS Failed: ${realEmailSent}. Please check Template ID, variables, or Domain whitelist in EmailJS dashboard.`,
+        type: 'info'
       });
     }
     setTimeout(() => setEmailSentToast(null), 6000);
