@@ -49,56 +49,48 @@ app.get("/api/ai/status", (req, res) => {
   });
 });
 
-// Endpoint: Send Real Email via SMTP Nodemailer
+// Endpoint: Send Real Email via EmailJS
 app.post("/api/send-email", async (req, res) => {
   const { to, subject, body } = req.body;
 
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-
-  if (!smtpUser || !smtpPass || smtpUser === "MY_SMTP_USER" || smtpPass === "MY_SMTP_PASS" || smtpUser === "") {
-    console.warn("SMTP credentials are not configured in environment. Logging email content instead.");
-    console.log(`[MOCK EMAIL SENT] To: ${to}\nSubject: ${subject}\nBody:\n${body}`);
-    return res.json({
-      success: true,
-      mode: "mocked",
-      message: "SMTP settings not configured. Stored notification locally in candidate dashboard."
-    });
-  }
-
-  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  const smtpPort = parseInt(process.env.SMTP_PORT || "587");
-  const smtpSecure = process.env.SMTP_SECURE === "true";
-
   try {
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpSecure,
-      auth: {
-        user: smtpUser,
-        pass: smtpPass
-      }
+    const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        service_id: "service_qscyczo",
+        template_id: "template_a2jf1nt",
+        user_id: "ZFnEUVSq5ekCN4kmV",
+        template_params: {
+          to_email: to,
+          subject: subject,
+          message: body
+        }
+      })
     });
 
-    await transporter.sendMail({
-      from: `"CareerSphere AI" <${smtpUser}>`,
-      to: to,
-      subject: subject,
-      text: body
-    });
-
-    console.log(`[REAL EMAIL SENT] Successfully sent email to ${to}`);
-    res.json({
-      success: true,
-      mode: "real",
-      message: "Real email sent successfully!"
-    });
+    if (response.ok) {
+      console.log(`[REAL EMAIL SENT] Successfully sent email to ${to} via EmailJS`);
+      res.json({
+        success: true,
+        mode: "real",
+        message: "Real email sent successfully via EmailJS!"
+      });
+    } else {
+      const errorText = await response.text();
+      console.error("EmailJS failed to send email:", errorText);
+      res.status(500).json({
+        success: false,
+        error: errorText || "Failed to send email via EmailJS."
+      });
+    }
   } catch (error: any) {
-    console.error("Nodemailer failed to send email:", error);
+    console.error("EmailJS failed to send email:", error);
     res.status(500).json({
       success: false,
-      error: error.message || "Failed to connect to SMTP server or send email."
+      error: error.message || "Failed to connect to EmailJS."
     });
   }
 });
