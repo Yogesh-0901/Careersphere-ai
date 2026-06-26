@@ -1,0 +1,6 @@
+{
+  "name": "CareerSphere AI",
+  "description": "Your Personal AI Career Coach & Recruiter Portal. Offers advanced AI resume analysis, personalized career roadmap generation, real-time mock interviews with AI-driven feedback, custom skill-gap evaluation, and an interactive AI Mentor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
