@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
-import { doc, getDoc, updateDoc, setDoc, onSnapshot, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc, deleteDoc, onSnapshot, collection, getDocs } from "firebase/firestore";
 
 interface RecruiterWorkspaceProps {
   userName: string;
@@ -24,7 +24,7 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
   // Tabs: 'dashboard' | 'analytics' | 'candidate-profile' | 'applications' | 'interviews' | 'reports' | 'settings'
   const [isDark, setIsDark] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<'dashboard' | 'analytics' | 'candidate-profile' | 'applications' | 'interviews' | 'reports' | 'settings'>('dashboard');
+  const [tab, setTab] = useState<'dashboard' | 'jobs' | 'analytics' | 'candidate-profile' | 'applications' | 'interviews' | 'reports' | 'settings'>('dashboard');
 
   // Modal / Selection state
   const [selectedCandidate, setSelectedCandidate] = useState<string>(() => {
@@ -47,6 +47,81 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
   const [companyEmail, setCompanyEmail] = useState("recruiter@nexisai.io");
   const [companyAddress, setCompanyAddress] = useState("Tidel Park, Tharamani, Chennai, Tamil Nadu, India");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  // Jobs State
+  const [postedJobs, setPostedJobs] = useState<any[]>([]);
+  const [showJobModal, setShowJobModal] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [jobForm, setJobForm] = useState({
+    title: '',
+    role: 'UI/UX Designer',
+    location: 'Remote',
+    salary: '₹5 - 8 LPA',
+    skills: '',
+  });
+
+  useEffect(() => {
+    if (userRole !== 'recruiter') return;
+    const q = collection(db, 'jobs');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const jobs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Filter by this recruiter's email
+      const myJobs = jobs.filter((j: any) => j.recruiterEmail === companyEmail);
+      setPostedJobs(myJobs);
+    });
+    return () => unsubscribe();
+  }, [userRole, companyEmail]);
+
+  const handleSaveJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const skillsArray = jobForm.skills.split(',').map(s => s.trim()).filter(s => s);
+    const jobData = {
+      title: jobForm.title,
+      role: jobForm.role,
+      location: jobForm.location,
+      salary: jobForm.salary,
+      skills: skillsArray,
+      company: companyName,
+      recruiterEmail: companyEmail,
+      postedDate: new Date().toISOString(),
+      isActive: true
+    };
+
+    try {
+      if (editingJobId) {
+        await updateDoc(doc(db, 'jobs', editingJobId), jobData);
+      } else {
+        await setDoc(doc(db, 'jobs', Date.now().toString()), jobData);
+      }
+      setShowJobModal(false);
+      setEditingJobId(null);
+      setJobForm({ title: '', role: 'UI/UX Designer', location: 'Remote', salary: '₹5 - 8 LPA', skills: '' });
+    } catch (err) {
+      console.error("Error saving job", err);
+      alert("Failed to save job");
+    }
+  };
+
+    const handleDeleteJob = async (id: string) => {
+    if (confirm("Are you sure you want to permanently delete this job posting?")) {
+      try {
+        await deleteDoc(doc(db, 'jobs', id));
+      } catch (err) {
+        console.error("Error deleting job", err);
+      }
+    }
+  };
+
+  const handleToggleJobVisibility = async (id: string, currentStatus: boolean) => {
+    const action = currentStatus ? "hide this job from students" : "republish this job for students";
+    if (confirm(`Are you sure you want to ${action}?`)) {
+      try {
+        await updateDoc(doc(db, 'jobs', id), { isActive: !currentStatus });
+      } catch (err) {
+        console.error("Error toggling job visibility", err);
+      }
+    }
+  };
+
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -1220,6 +1295,7 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
         <nav className="flex-1 p-4 py-6 space-y-1.5 overflow-y-auto">
           {[
             { id: 'dashboard', label: 'Pipeline Overview', icon: Users },
+            { id: 'jobs', label: 'Manage Jobs', icon: Globe },
             { id: 'applications', label: 'Job Applications', icon: Briefcase },
             { id: 'analytics', label: 'Candidate Analytics', icon: BarChart3 },
             { id: 'candidate-profile', label: 'Candidate Spotlight', icon: GraduationCap },
@@ -1449,6 +1525,171 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
         {/* RECRUITER CONTENT WORKSPACE BOARD */}
         <div className="flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
           <AnimatePresence mode="wait">
+
+            
+            {/* TAB: MANAGE JOBS */}
+            {tab === 'jobs' && (
+              <motion.div 
+                key="recruiter-jobs"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="space-y-6"
+              >
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Manage Job Postings</h3>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">Post new job openings and manage existing ones. These will be visible to students.</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setEditingJobId(null);
+                      setJobForm({ title: '', role: 'UI/UX Designer', location: 'Remote', salary: '₹5 - 8 LPA', skills: '' });
+                      setShowJobModal(true);
+                    }}
+                    className="bg-[#6342E8] hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-2 cursor-pointer shadow-lg shadow-purple-500/20"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Post New Job
+                  </button>
+                </div>
+
+                {postedJobs.length === 0 ? (
+                  <div className="bg-white dark:bg-[#14183B]/5 border border-slate-200 dark:border-white/10 rounded-2xl p-10 flex flex-col items-center justify-center text-center">
+                    <Globe className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">No Jobs Posted Yet</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">You haven't posted any jobs. Click "Post New Job" to create your first listing.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {postedJobs.map((job) => (
+                      <div key={job.id} className="bg-white dark:bg-[#14183B]/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 hover:border-purple-500/30 transition-all flex flex-col h-full">
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                            {job.role}
+                          </span>
+                          {job.isActive === false && (
+                            <span className="ml-2 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                              Hidden
+                            </span>
+                          )}
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => {
+                                setEditingJobId(job.id);
+                                setJobForm({ title: job.title, role: job.role, location: job.location, salary: job.salary, skills: (job.skills || []).join(', ') });
+                                setShowJobModal(true);
+                              }}
+                              className="p-1.5 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-blue-500 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => handleToggleJobVisibility(job.id, job.isActive !== false)}
+                              className="p-1.5 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-amber-500 rounded-lg transition-colors cursor-pointer"
+                            >
+                              {job.isActive !== false ? 'Hide' : 'Republish'}
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteJob(job.id)}
+                              className="p-1.5 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-rose-500 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">{job.title}</h4>
+                        <div className="text-[10px] text-slate-600 dark:text-slate-400 space-y-1 mb-4 flex-1">
+                          <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3" /> {job.location}</div>
+                          <div className="flex items-center gap-1.5"><Briefcase className="w-3 h-3" /> {job.salary}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-auto pt-3 border-t border-slate-100 dark:border-white/5">
+                          {(job.skills || []).slice(0,3).map((skill, i) => (
+                            <span key={i} className="bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 text-[9px] font-medium px-1.5 py-0.5 rounded">
+                              {skill}
+                            </span>
+                          ))}
+                          {(job.skills || []).length > 3 && (
+                            <span className="bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 text-[9px] font-medium px-1.5 py-0.5 rounded">
+                              +{(job.skills.length - 3)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* JOB MODAL */}
+            <AnimatePresence>
+              {showJobModal && (
+                <>
+                  <div className="fixed inset-0 bg-[#0B0E2E]/60 backdrop-blur-sm z-50" onClick={() => setShowJobModal(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-lg bg-white dark:bg-[#0B0E2E] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[90vh]"
+                  >
+                    <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center">
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                        {editingJobId ? 'Edit Job Posting' : 'Post New Job'}
+                      </h3>
+                      <button onClick={() => setShowJobModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg text-slate-500 transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <form onSubmit={handleSaveJob} className="p-5 space-y-4 overflow-y-auto">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Job Title</label>
+                        <input type="text" required value={jobForm.title} onChange={e => setJobForm({...jobForm, title: e.target.value})} placeholder="e.g. Senior Product Designer" className="w-full bg-slate-50 dark:bg-[#14183B]/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500" />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Role Category</label>
+                        <select required value={jobForm.role} onChange={e => setJobForm({...jobForm, role: e.target.value})} className="w-full bg-slate-50 dark:bg-[#14183B]/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500">
+                          <option value="UI/UX Designer">UI/UX Designer</option>
+                          <option value="Frontend Engineer">Frontend Engineer</option>
+                          <option value="Data Analyst">Data Analyst</option>
+                          <option value="Product Manager">Product Manager</option>
+                          <option value="Digital Marketer">Digital Marketer</option>
+                          <option value="Cloud Engineer">Cloud Engineer</option>
+                          <option value="Cyber Security Analyst">Cyber Security Analyst</option>
+                          <option value="Full Stack Developer">Full Stack Developer</option>
+                          <option value="AI & ML Engineer">AI & ML Engineer</option>
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Location</label>
+                          <input type="text" required value={jobForm.location} onChange={e => setJobForm({...jobForm, location: e.target.value})} placeholder="e.g. Remote" className="w-full bg-slate-50 dark:bg-[#14183B]/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Salary Range</label>
+                          <input type="text" required value={jobForm.salary} onChange={e => setJobForm({...jobForm, salary: e.target.value})} placeholder="e.g. ₹5 - 8 LPA" className="w-full bg-slate-50 dark:bg-[#14183B]/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Required Skills (Comma separated)</label>
+                        <input type="text" required value={jobForm.skills} onChange={e => setJobForm({...jobForm, skills: e.target.value})} placeholder="e.g. Figma, React, Communication" className="w-full bg-slate-50 dark:bg-[#14183B]/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500" />
+                      </div>
+
+                      <div className="pt-4 flex justify-end gap-3">
+                        <button type="button" onClick={() => setShowJobModal(false)} className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer">Cancel</button>
+                        <button type="submit" className="bg-[#6342E8] hover:bg-purple-600 text-white font-bold py-2 px-6 rounded-xl text-xs cursor-pointer shadow-lg shadow-purple-500/20 transition-all">
+                          {editingJobId ? 'Save Changes' : 'Post Job'}
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
 
             {/* TAB: DASHBOARD OVERVIEW (Screen 19) */}
             {tab === 'dashboard' && (

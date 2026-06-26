@@ -1084,6 +1084,33 @@ export default function CandidateWorkspace({
   const [jobFilter, setJobFilter] = useState<'Recommended' | 'Saved' | 'Applied'>('Recommended');
   const [jobPosts, setJobPosts] = useState<JobPost[]>(() => getJobsForRole("UI/UX Designer", 88));
 
+  // Sync jobs from Firestore
+  useEffect(() => {
+    const q = collection(db, 'jobs');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fsJobs = snapshot.docs.filter(doc => doc.data().isActive !== false && doc.data().role === selectedRole).map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title || data.role,
+          company: data.company || "Unknown",
+          location: data.location || "Remote",
+          salary: data.salary || "N/A",
+          matchScore: Math.min(100, Math.round((dashboardProgress || 88) * 1.05)),
+          skills: data.skills || [],
+          applied: false
+        };
+      });
+      
+      setJobPosts(prev => {
+        const staticJobs = getJobsForRole(selectedRole, dashboardProgress || 88);
+        // keep static ones and prepend fsJobs
+        return [...fsJobs, ...staticJobs];
+      });
+    });
+    return () => unsubscribe();
+  }, [selectedRole, dashboardProgress]);
+
   useEffect(() => {
     setJobPosts(prev => {
       const fresh = getJobsForRole(selectedRole, resumeScore);
@@ -1096,7 +1123,9 @@ export default function CandidateWorkspace({
         }
       } catch (e) {}
 
-      return fresh.map(fJob => {
+            const fsJobsFromPrev = prev.filter(p => !fresh.some(f => f.id === p.id));
+      
+      const updatedFresh = fresh.map(fJob => {
         let updatedJob = { ...fJob };
         if (updatedJob.company === "Nexis AI Solutions" || updatedJob.id === 'nexis_ai') {
           updatedJob.company = recruiterCompanyName;
@@ -1107,6 +1136,8 @@ export default function CandidateWorkspace({
         }
         return updatedJob;
       });
+
+      return [...fsJobsFromPrev, ...updatedFresh];
     });
   }, [selectedRole, resumeScore, tab]);
 
@@ -1250,6 +1281,44 @@ export default function CandidateWorkspace({
   };
 
   // Interview handlers moved to MockInterviewPortal component
+
+    const handleCancelApplication = (jobId: string) => {
+    if (!confirm("Are you sure you want to cancel your application?")) return;
+    
+    setJobPosts(prev => 
+      prev.map(j => j.id === jobId ? { ...j, applied: false } : j)
+    );
+
+    try {
+      const stored = localStorage.getItem("cs_registered_candidates") || "[]";
+      const list = JSON.parse(stored);
+      const updated = list.map((c: any) => {
+        if (c.email.toLowerCase() === userEmail.toLowerCase()) {
+          return { 
+            ...c, 
+            appliedJobTitle: null,
+            appliedJobCompany: null,
+            appliedJobId: null,
+            newApplicationNotification: false,
+            status: null
+          };
+        }
+        return c;
+      });
+      localStorage.setItem("cs_registered_candidates", JSON.stringify(updated));
+      
+      setCandidateRecord((prev: any) => prev ? {
+        ...prev,
+        appliedJobTitle: null,
+        appliedJobCompany: null,
+        appliedJobId: null,
+        newApplicationNotification: false,
+        status: null
+      } : null);
+    } catch (e) {
+      console.error("Failed to cancel application details:", e);
+    }
+  };
 
   const handleApplyToJob = (jobId: string) => {
     const job = jobPosts.find(j => j.id === jobId);
@@ -2431,7 +2500,10 @@ export default function CandidateWorkspace({
                                   ) : jobStatus === "Hired" ? (
                                     <span className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-900/300 text-slate-900 dark:text-white border border-amber-400 shadow-xs uppercase">✓ Hired</span>
                                   ) : (
-                                    <span className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 dark:border-emerald-700/50">Applied</span>
+                                    <div className="flex flex-col gap-1.5 items-end">
+                                      <span className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 dark:border-emerald-700/50 block text-center w-full">Applied</span>
+                                      <button onClick={() => handleCancelApplication(job.id)} className="text-[10px] text-slate-500 hover:text-rose-500 font-bold underline cursor-pointer px-1 py-0.5">Cancel Application</button>
+                                    </div>
                                   )
                                 ) : (
                                   <button
