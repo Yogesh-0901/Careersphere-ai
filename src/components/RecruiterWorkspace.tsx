@@ -3228,9 +3228,6 @@ export default function RecruiterWorkspace({ userName, userRole, onLogout, onNav
               </div>
               <div>
                 <p className="text-xs font-semibold leading-relaxed">{emailSentToast.msg}</p>
-                {emailSentToast.type === 'info' && (
-                  <p className="text-[10px] text-purple-400 font-mono mt-1">Add SMTP_USER & SMTP_PASS in .env to send real emails.</p>
-                )}
               </div>
               <button onClick={() => setEmailSentToast(null)} className="text-slate-900 dark:text-white/40 hover:text-slate-900 dark:text-white ml-2 shrink-0 cursor-pointer">
                 <X className="w-3.5 h-3.5" />
