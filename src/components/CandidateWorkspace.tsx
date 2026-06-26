@@ -1747,10 +1747,12 @@ export default function CandidateWorkspace({
                 </div>
                 {/* Interview RSVP Banner — shown when recruiter has scheduled an interview */}
                 {candidateRecord?.scheduledDate && candidateRecord?.interviewRSVP === 'pending' && (() => {
-                  const formatted = new Date(`${candidateRecord.scheduledDate}T${candidateRecord.scheduledTime || '10:00'}`).toLocaleString('en-IN', {
-                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-                    hour: '2-digit', minute: '2-digit', hour12: true
-                  });
+                  const dateObj = new Date(`${candidateRecord.scheduledDate}T${candidateRecord.scheduledTime || '10:00'}`);
+                  const day = dateObj.toLocaleDateString('en-GB', { day: '2-digit' });
+                  const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
+                  const year = dateObj.getFullYear();
+                  const timeString = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+                  const formatted = `${day} ${month} ${year} at ${timeString}`;
                   return (
                     <motion.div
                       initial={{ opacity: 0, y: -8 }}
@@ -1764,7 +1766,7 @@ export default function CandidateWorkspace({
                         <div className="flex-1">
                           <span className="text-[9px] font-mono tracking-widest uppercase text-blue-200 font-bold block">Interview Invitation — RSVP Required</span>
                           <h4 className="font-extrabold text-sm mt-0.5">
-                            {candidateRecord.appliedJobCompany || 'Nexis AI Solutions'} — {formatted}
+                            {(candidateRecord.appliedJobCompany?.trim() || 'Nexis AI Solutions')} — {formatted}
                           </h4>
                           <p className="text-xs text-blue-200 mt-1">
                             📍 {candidateRecord.scheduledVenue || 'Nexis AI Solutions, Tidel Park, Tharamani, Chennai'}
