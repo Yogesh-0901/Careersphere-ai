@@ -23,6 +23,7 @@ export default function AuthView({ onAuthSuccess, onBack, initialMode = 'login' 
   const [success, setSuccess] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [adminPasscode, setAdminPasscode] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +42,10 @@ export default function AuthView({ onAuthSuccess, onBack, initialMode = 'login' 
     }
 
     if (isSignup) {
+      if (selectedRole === 'recruiter' && adminPasscode !== 'CAREER_ADMIN_2026') {
+        setError("Invalid Admin Passcode. You are not authorized to create a Recruiter account.");
+        return;
+      }
       if (!fullName) {
         setError("Please clarify your full name.");
         return;
@@ -398,6 +403,27 @@ export default function AuthView({ onAuthSuccess, onBack, initialMode = 'login' 
                     </button>
                   </div>
                 </div>
+
+                {isSignup && selectedRole === 'recruiter' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-4">
+                    <label className="block text-[11px] font-bold text-yellow-400 uppercase tracking-widest mb-1.5">
+                      Admin Passcode <span className="text-red-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-yellow-500/50">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="password"
+                        required
+                        value={adminPasscode}
+                        onChange={(e) => setAdminPasscode(e.target.value)}
+                        placeholder="Enter secret recruiter code"
+                        className="block w-full pl-10 pr-4 py-2.5 bg-yellow-500/5 border border-yellow-500/20 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:bg-yellow-500/10 text-white font-medium transition-all"
+                      />
+                    </div>
+                  </motion.div>
+                )}
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-1.5">
